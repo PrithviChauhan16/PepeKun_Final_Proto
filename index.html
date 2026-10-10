@@ -249,12 +249,13 @@
                    <h2 class="text-3xl md:text-4xl font-cloud font-semibold text-gray-900 mt-3 tracking-tight">Best Sellers</h2>
                     <p class="text-gray-500 text-sm md:text-base mt-2">Tap any adorable companion to view full photos</p>
                 </div>
-                <div class="relative w-full overflow-hidden py-4">
-                    <div class="absolute left-0 inset-y-0 w-24 md:w-48 bg-gradient-to-r from-[#F4E8FA] to-transparent z-10 pointer-events-none"></div>
-                    <div class="absolute right-0 inset-y-0 w-24 md:w-48 bg-gradient-to-l from-[#F4E8FA] to-transparent z-10 pointer-events-none"></div>
-                    <div id="cutest-pepes-track" class="flex gap-8 animate-marquee w-max cursor-default items-center py-4 px-8"></div>
-                </div>
-            </section>
+               <div class="relative w-full overflow-hidden py-4">
+    <div class="absolute left-0 inset-y-0 w-24 md:w-48 bg-gradient-to-r from-[#F4E8FA] to-transparent z-10 pointer-events-none"></div>
+    <div class="absolute right-0 inset-y-0 w-24 md:w-48 bg-gradient-to-l from-[#F4E8FA] to-transparent z-10 pointer-events-none"></div>
+    
+    <!-- Updated for native swiping + JS auto-scroll -->
+    <div id="cutest-pepes-track" class="flex gap-8 overflow-x-auto no-scrollbar w-full items-center py-4 px-8 touch-pan-x select-none cursor-grab active:cursor-grabbing"></div>
+</div>
             
             <!-- SUB CATEGORIES / COLLECTIONS -->
             <section id="collections-section" class="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12">
