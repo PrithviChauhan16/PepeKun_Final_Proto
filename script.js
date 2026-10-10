@@ -136,16 +136,24 @@ import { supabase } from './supabaseClient.js';
   }
 
   // <-- ADDED: Size selection helper
-  function selectSize(size, btnElement) {
-    selectedSize = size;
-    document.querySelectorAll('.size-btn').forEach(btn => {
-      btn.classList.remove('border-pink-500', 'bg-pink-50', 'text-pink-600', 'ring-2', 'ring-pink-400');
-      btn.classList.add('border-gray-300', 'text-gray-700');
-    });
-    if (btnElement) {
-      btnElement.classList.remove('border-gray-300', 'text-gray-700');
-      btnElement.classList.add('border-pink-500', 'bg-pink-50', 'text-pink-600', 'ring-2', 'ring-pink-400');
-    }
+function selectSize(sizeName, sizePrice, btnEl) {
+      selectedSize = sizeName;
+      
+      // Reset all size buttons
+      document.querySelectorAll('.size-btn').forEach(btn => {
+          btn.classList.remove('border-pink-500', 'bg-pink-50', 'text-pink-600');
+          btn.classList.add('border-gray-300', 'text-gray-700');
+      });
+      
+      // Highlight selected button
+      btnEl.classList.remove('border-gray-300', 'text-gray-700');
+      btnEl.classList.add('border-pink-500', 'bg-pink-50', 'text-pink-600');
+
+      // Update the main price display if a specific price exists for this size
+      const priceContainer = document.getElementById('modal-price');
+      if (priceContainer && sizePrice > 0) {
+          priceContainer.innerHTML = `<span class="text-pink-500 font-bold text-2xl">₹${parseFloat(sizePrice).toFixed(2)}</span>`;
+      }
   }
 
   // <-- UPDATED: Accepts chosenSize parameter
@@ -570,7 +578,7 @@ import { supabase } from './supabaseClient.js';
       }
     }
 
-    // <-- ADDED: Parse and Render Sizes
+// <-- ADDED: Parse and Render Sizes (Updated for Dynamic Pricing)
     let sizes = [];
     try {
       sizes = Array.isArray(prod.sizes) ? prod.sizes : JSON.parse(prod.sizes || '[]');
@@ -583,19 +591,28 @@ import { supabase } from './supabaseClient.js';
     if (sizesContainer && sizesOptions) {
       if (sizes.length > 0) {
         sizesContainer.classList.remove('hidden');
-        sizesOptions.innerHTML = sizes.map(size => `
-          <button type="button" 
-                  onclick="selectSize('${size}', this)"
-                  class="size-btn border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-gray-700 hover:border-pink-500 transition-all">
-            ${size}
-          </button>
-        `).join('');
+        sizesOptions.innerHTML = sizes.map(sizeString => {
+            let sizeName = sizeString;
+            let sizePrice = Math.max(0, parseFloat(prod.price || 0)); // Default to base price
+
+            // Check if size contains a price (e.g., "35cm:900")
+            if (sizeString.includes(':')) {
+                const parts = sizeString.split(':');
+                sizeName = parts[0].trim();
+                sizePrice = Math.max(0, parseFloat(parts[1].trim() || 0));
+            }
+
+            return `<button type="button" 
+                    onclick="selectSize('${sizeName}', ${sizePrice}, this)"
+                    class="size-btn border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-gray-700 hover:border-pink-500 transition-all">
+              ${sizeName}
+            </button>`;
+        }).join('');
       } else {
         sizesContainer.classList.add('hidden');
         sizesOptions.innerHTML = '';
       }
     }
-
     const modalSwipeTrack = document.getElementById('modal-swipe-track');
     if (modalSwipeTrack) {
       const escapedImages = JSON.stringify(images).replace(/"/g, '&quot;');
