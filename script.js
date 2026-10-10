@@ -597,7 +597,7 @@ import { supabase } from './supabaseClient.js';
       const escapedImages = JSON.stringify(images).replace(/"/g, '&quot;');
       modalSwipeTrack.innerHTML = images.map((img, index) => `
           <div class="w-full h-full flex-none snap-center flex items-center justify-center p-4">
-              <img src="${img}" onclick="openFullscreenGallery(${escapedImages},${index})" class="w-full h-full object-contain cursor-zoom-in" title="Tap to expand fullscreen">
+              <img src="${img}" onclick="openFullscreenGallery(${escapedImages}, ${index})" class="w-full h-full object-contain cursor-zoom-in" title="Tap to expand fullscreen">
           </div>
       `).join('');
       modalSwipeTrack.scrollLeft = 0;
@@ -761,7 +761,7 @@ import { supabase } from './supabaseClient.js';
 
   function updateGalleryCounter(index, total) {
     const counter = document.getElementById('gallery-counter');
-    if (counter) counter.innerText = `${index + 1} /${total}`;
+    if (counter) counter.innerText = `${index + 1} / ${total}`;
   }
 
   function closeFullscreenGallery() {
@@ -873,4 +873,90 @@ import { supabase } from './supabaseClient.js';
                           <div class="min-w-full h-full flex-none snap-center flex items-center justify-center p-3 md:p-6">
                               <img src="${img}" alt="${prod.title}" class="max-w-full max-h-full object-contain transition-transform duration-500 group-hover/slider:scale-105">
                           </div>
-                      `).
+                      `).join('')}
+                  </div>
+                  
+                  ${imagesArr.length > 1 ? `
+                      <button onclick="event.stopPropagation(); scrollProductSlider(event, 'promo-${prod.id}', -1)" class="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none">‹</button>
+                      <button onclick="event.stopPropagation(); scrollProductSlider(event, 'promo-${prod.id}', 1)" class="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none">›</button>
+                      
+                      <div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/10 to-transparent pointer-events-none rounded-b-[1.5rem] md:rounded-b-[2rem] z-20"></div>
+                      <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none z-30" id="dots-promo-${prod.id}">
+                          ${imagesArr.map((_, i) => `<span class="w-1.5 h-1.5 rounded-full transition-all duration-300 ${i === 0 ? 'bg-white scale-125' : 'bg-white/60'} shadow-sm border border-gray-300/30"></span>`).join('')}
+                      </div>
+                  ` : ''}
+              </div>
+
+              <div class="p-4 md:p-5 flex flex-col flex-grow border-t border-gray-50 relative z-20 bg-white">
+                  <h3 class="font-semibold text-gray-900 group-hover:text-pink-500 transition-colors text-sm md:text-lg line-clamp-2 leading-tight z-10 mb-1 break-words">${prod.title}</h3>
+                  <div class="mb-2">${priceDisplayHTML}</div>
+                  <p class="text-gray-400 text-[10px] md:text-sm mb-4 mt-auto line-clamp-1">${prod.category || 'Best Seller'}</p>
+                  <button id="btn-promo-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-promo-${prod.id}')" class="mt-auto w-full bg-brand-900 text-white py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-1.5 group/btn z-10">
+                      Add to Cart
+                  </button>
+              </div>
+          </div>
+        `;
+      }).join('');
+
+      // Inject cards (tripled to ensure smooth infinite looping while swiping)
+      track.innerHTML = cardsHTML + cardsHTML + cardsHTML;
+
+      // --- AUTO-SCROLL LOGIC ---
+      let isInteracting = false;
+      let scrollSpeed = 1; 
+      
+      const pauseScroll = () => isInteracting = true;
+      const resumeScroll = () => isInteracting = false;
+
+      track.addEventListener('mouseenter', pauseScroll);
+      track.addEventListener('mouseleave', resumeScroll);
+      track.addEventListener('touchstart', pauseScroll, { passive: true });
+      track.addEventListener('touchend', resumeScroll);
+
+      // Continuous loop
+      setInterval(() => {
+        if (!isInteracting) {
+          track.scrollLeft += scrollSpeed;
+          // Infinite loop reset: if scrolled past 1/3 of the duplicated content, snap back
+          if (track.scrollLeft >= track.scrollWidth / 3) {
+            track.scrollLeft = 0;
+          }
+        }
+      }, 20);
+
+    } catch (err) {
+      console.error('Error loading Best Sellers showcase:', err);
+    }
+  }
+
+  // 10. Expose global handlers needed for inline onclick attributes in HTML
+  window.showCategoryProducts = showCategoryProducts;
+  window.hideProducts = hideProducts;
+  window.scrollCategoryRow = scrollCategoryRow;
+  window.openProductModal = openProductModal;
+  window.closeModal = closeModal;
+  window.addToCart = addToCart;
+  window.selectColor = selectColor;
+  window.selectSize = selectSize; // <-- ADDED: Expose selectSize globally
+  window.updateSliderDots = updateSliderDots;
+  window.scrollProductSlider = scrollProductSlider;
+  window.scrollModalSlider = scrollModalSlider;
+  window.changeModalImage = changeModalImage;
+  window.openFullscreenGallery = openFullscreenGallery;
+  window.closeFullscreenGallery = closeFullscreenGallery;
+  window.scrollGallerySlider = scrollGallerySlider;
+  window.loadCutestPepesShowcase = loadCutestPepesShowcase;
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    checkUserSession();
+    loadCategoriesAndCollections();
+    loadCutestPepesShowcase();
+
+    const contactForm = document.getElementById('contact-form');
+    if (contactForm) {
+      contactForm.addEventListener('submit', handleContactSubmit);
+    }
+  });
+})();
