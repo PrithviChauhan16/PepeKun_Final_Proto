@@ -436,7 +436,7 @@ import { supabase } from './supabaseClient.js';
           return `
             <div class="product-card min-w-0 w-64 md:w-72 flex-shrink-0 snap-center bg-white rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col relative group overflow-hidden">
                 <div class="relative w-full aspect-[4/5] bg-white overflow-hidden group/slider rounded-t-[2rem]">
-                    <div id="slider-${prod.id}" class="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory h-full w-full no-scrollbar relative z-10 touch-pan-x" onscroll="updateSliderDots(event, '${prod.id}')">
+                    <div id="slider-${prod.id}" class="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory h-full w-full no-scrollbar relative z-10" onscroll="updateSliderDots(event, '${prod.id}')">
                         ${imagesArr.map((img) => `
                             <div class="w-full h-full flex-none snap-center flex items-center justify-center p-4">
                                 <img src="${img}" alt="${prod.title}" onclick="openProductModal('${prod.id}')" class="w-full h-full object-contain cursor-pointer transition-transform duration-500 group-hover/slider:scale-105">
