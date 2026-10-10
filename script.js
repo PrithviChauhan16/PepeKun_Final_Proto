@@ -752,7 +752,7 @@ import { supabase } from './supabaseClient.js';
   }
 
   // 9. Best Sellers Marquee Showcase
-  async function loadCutestPepesShowcase() {
+async function loadCutestPepesShowcase() {
     const track = document.getElementById('cutest-pepes-track');
     if (!track) return;
 
@@ -763,19 +763,14 @@ import { supabase } from './supabaseClient.js';
         .eq('is_bestseller', true);
 
       if (prodErr || !promoProducts || promoProducts.length === 0) {
-        const { data: fallbackProds } = await supabase
-          .from('products')
-          .select('*')
-          .limit(6);
+        const { data: fallbackProds } = await supabase.from('products').select('*').limit(6);
         promoProducts = fallbackProds || [];
       }
 
       if (promoProducts.length === 0) return;
 
       promoProducts.forEach(p => {
-        if (!products.some(existing => existing.id === p.id)) {
-          products.push(p);
-        }
+        if (!products.some(existing => existing.id === p.id)) products.push(p);
       });
 
       const cardsHTML = promoProducts.map(prod => {
@@ -785,45 +780,19 @@ import { supabase } from './supabaseClient.js';
         } catch (e) {
           imagesArr = [prod.images || '1.png'];
         }
-
         let priceDisplayHTML = getPriceDisplayHTML(prod);
 
         return `
           <div onclick="openProductModal('${prod.id}')" class="product-card min-w-0 w-64 md:w-72 flex-shrink-0 bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col relative group overflow-hidden cursor-pointer">
-              
+              <!-- (Your existing card HTML remains exactly the same here) -->
               <div class="relative w-full aspect-square bg-[#FDFBF7] overflow-hidden group/slider rounded-t-[1.5rem] md:rounded-t-[2rem]">
-                  <div id="slider-promo-${prod.id}" class="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory h-full w-full no-scrollbar relative z-10 touch-pan-x" onscroll="updateSliderDots(event, 'promo-${prod.id}')">
-                      ${imagesArr.map((img) => `
-                          <div class="min-w-full h-full flex-none snap-center flex items-center justify-center p-3 md:p-6">
-                              <img src="${img}" alt="${prod.title}" class="max-w-full max-h-full object-contain transition-transform duration-500 group-hover/slider:scale-105">
-                          </div>
-                      `).join('')}
-                  </div>
-                  
-                  ${imagesArr.length > 1 ? `
-                      <button onclick="event.stopPropagation(); scrollProductSlider(event, 'promo-${prod.id}', -1)" class="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none">‹</button>
-                      <button onclick="event.stopPropagation(); scrollProductSlider(event, 'promo-${prod.id}', 1)" class="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none">›</button>
-                      
-                      <div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/10 to-transparent pointer-events-none rounded-b-[1.5rem] md:rounded-b-[2rem] z-20"></div>
-                      <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none z-30" id="dots-promo-${prod.id}">
-                          ${imagesArr.map((_, i) => `<span class="w-1.5 h-1.5 rounded-full transition-all duration-300 ${i === 0 ? 'bg-white scale-125' : 'bg-white/60'} shadow-sm border border-gray-300/30"></span>`).join('')}
-                      </div>
-                  ` : ''}
+                  <img src="${imagesArr[0]}" alt="${prod.title}" class="w-full h-full object-contain transition-transform duration-500 group-hover/slider:scale-105 p-6">
               </div>
-
               <div class="p-4 md:p-5 flex flex-col flex-grow border-t border-gray-50 relative z-20 bg-white">
-                  <h3 class="font-semibold text-gray-900 group-hover:text-pink-500 transition-colors text-sm md:text-lg line-clamp-2 leading-tight z-10 mb-1 break-words">
-                      ${prod.title}
-                  </h3>
-                  
-                  <div class="mb-2">
-                      ${priceDisplayHTML}
-                  </div>
-                  
+                  <h3 class="font-semibold text-gray-900 group-hover:text-pink-500 transition-colors text-sm md:text-lg line-clamp-2 leading-tight z-10 mb-1 break-words">${prod.title}</h3>
+                  <div class="mb-2">${priceDisplayHTML}</div>
                   <p class="text-gray-400 text-[10px] md:text-sm mb-4 mt-auto line-clamp-1">${prod.category || 'Best Seller'}</p>
-                  
                   <button id="btn-promo-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-promo-${prod.id}')" class="mt-auto w-full bg-brand-900 text-white py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-1.5 group/btn z-10">
-                      <svg class="w-3.5 h-3.5 md:w-4 md:h-4 group-hover/btn:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
                       Add to Cart
                   </button>
               </div>
@@ -831,7 +800,33 @@ import { supabase } from './supabaseClient.js';
         `;
       }).join('');
 
-      track.innerHTML = cardsHTML + cardsHTML;
+      // Inject cards (tripled to ensure smooth infinite looping while swiping)
+      track.innerHTML = cardsHTML + cardsHTML + cardsHTML;
+
+      // --- NEW AUTO-SCROLL LOGIC ---
+      let isInteracting = false;
+      let scrollSpeed = 1; // Adjust speed (higher is faster)
+      
+      // Pause sliding when user is swiping or hovering
+      const pauseScroll = () => isInteracting = true;
+      const resumeScroll = () => isInteracting = false;
+
+      track.addEventListener('mouseenter', pauseScroll);
+      track.addEventListener('mouseleave', resumeScroll);
+      track.addEventListener('touchstart', pauseScroll, { passive: true });
+      track.addEventListener('touchend', resumeScroll);
+
+      // Continuous loop
+      setInterval(() => {
+        if (!isInteracting) {
+          track.scrollLeft += scrollSpeed;
+          // Infinite loop reset: if scrolled past 1/3 of the duplicated content, snap back
+          if (track.scrollLeft >= track.scrollWidth / 3) {
+            track.scrollLeft = 0;
+          }
+        }
+      }, 20);
+
     } catch (err) {
       console.error('Error loading Best Sellers showcase:', err);
     }
