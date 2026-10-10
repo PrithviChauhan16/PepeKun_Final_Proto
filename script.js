@@ -14,7 +14,7 @@ import { supabase } from './supabaseClient.js';
   let selectedColor = null;
   let selectedSize = null; // <-- ADDED: Track selected size
 
-  // Helper Function for Generating Dynamic Price HTML with Discount Badges
+// Helper Function for Generating Dynamic Price HTML with Discount Badges
   function getPriceDisplayHTML(prod) {
     let sellingPrice = parseFloat(prod.price || 0);
     let originalPrice = parseFloat(prod.original_price || 0);
@@ -33,13 +33,17 @@ import { supabase } from './supabaseClient.js';
       `;
     } else if (originalPrice > sellingPrice && originalPrice > 0) {
       let calculatedDiscount = Math.round(((originalPrice - sellingPrice) / originalPrice) * 100);
-      return `
-        <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
-            <p class="text-pink-500 font-bold text-base md:text-lg">₹${sellingPrice.toFixed(2)}</p>
-            <p class="text-gray-400 text-xs line-through">₹${originalPrice.toFixed(2)}</p>
-            <span class="bg-green-100 text-green-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap">${calculatedDiscount}% OFF</span>
-        </div>
-      `;
+      
+      // Ensure the calculated discount is actually greater than 0 before showing the badge
+      if (calculatedDiscount > 0) {
+          return `
+            <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+                <p class="text-pink-500 font-bold text-base md:text-lg">₹${sellingPrice.toFixed(2)}</p>
+                <p class="text-gray-400 text-xs line-through">₹${originalPrice.toFixed(2)}</p>
+                <span class="bg-green-100 text-green-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap">${calculatedDiscount}% OFF</span>
+            </div>
+          `;
+      }
     }
 
     return `<p class="text-pink-500 font-bold text-base md:text-lg">₹${sellingPrice.toFixed(2)}</p>`;
@@ -606,7 +610,7 @@ import { supabase } from './supabaseClient.js';
     if (title) title.textContent = prod.title;
     if (desc) desc.textContent = prod.description || 'No description available.';
 
-    if (price) {
+   if (price) {
       let sellingPrice = parseFloat(prod.price || 0);
       let originalPrice = parseFloat(prod.original_price || 0);
       let discountPercent = parseFloat(prod.discount || prod.discount_percentage || 0);
@@ -624,18 +628,22 @@ import { supabase } from './supabaseClient.js';
         `;
       } else if (originalPrice > sellingPrice && originalPrice > 0) {
         let calculatedDiscount = Math.round(((originalPrice - sellingPrice) / originalPrice) * 100);
-        price.innerHTML = `
-            <div class="flex items-center gap-3">
-                <span class="text-pink-500 font-bold text-2xl">₹${sellingPrice.toFixed(2)}</span>
-                <span class="text-gray-400 text-lg line-through">₹${originalPrice.toFixed(2)}</span>
-                <span class="text-sm font-bold text-green-600 bg-green-100 px-2.5 py-0.5 rounded-full">${calculatedDiscount}% OFF</span>
-            </div>
-        `;
+        
+        if (calculatedDiscount > 0) {
+            price.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="text-pink-500 font-bold text-2xl">₹${sellingPrice.toFixed(2)}</span>
+                    <span class="text-gray-400 text-lg line-through">₹${originalPrice.toFixed(2)}</span>
+                    <span class="text-sm font-bold text-green-600 bg-green-100 px-2.5 py-0.5 rounded-full">${calculatedDiscount}% OFF</span>
+                </div>
+            `;
+        } else {
+            price.innerHTML = `<span class="text-pink-500 font-bold text-2xl">₹${sellingPrice.toFixed(2)}</span>`;
+        }
       } else {
         price.innerHTML = `<span class="text-pink-500 font-bold text-2xl">₹${sellingPrice.toFixed(2)}</span>`;
       }
     }
-
     if (specsList) {
       specsList.innerHTML = specs.length > 0
         ? specs.map(s => `<li>${s}</li>`).join('')
