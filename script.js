@@ -329,7 +329,7 @@ import { supabase } from './supabaseClient.js';
     row.scrollBy({ left: direction * Math.max(row.clientWidth * 0.8, 220), behavior: 'smooth' });
   }
 
-  // 4. Primary & Collection Category Drilldown View
+  // 4. Primary Category Drilldown View
   async function showCategoryProducts(categoryId, categoryName) {
     const categoriesSection = document.getElementById('categories');
     const collectionsSection = document.getElementById('collections-section');
@@ -339,17 +339,18 @@ import { supabase } from './supabaseClient.js';
 
     if (categoryTitle) categoryTitle.textContent = categoryName;
 
+    // ADDED: w-64 md:w-72 flex-shrink-0 snap-center to the skeleton loader
     if (productGrid) {
       productGrid.innerHTML = Array(6).fill(`
-        <div class="bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-gray-100 flex flex-col relative overflow-hidden animate-pulse">
-            <div class="w-full aspect-square bg-gray-100 rounded-t-[1.5rem] md:rounded-t-[2rem]"></div>
-            <div class="p-4 md:p-5 flex flex-col flex-grow border-t border-gray-50 bg-white">
+        <div class="w-64 md:w-72 flex-shrink-0 snap-center bg-white rounded-[2rem] shadow-sm border border-gray-100 flex flex-col relative overflow-hidden animate-pulse">
+            <div class="w-full aspect-[4/5] bg-gray-200 rounded-t-[2rem]"></div>
+            <div class="p-5 flex flex-col flex-grow border-t border-gray-50 bg-white">
                 <div class="flex justify-between items-start mb-1 gap-2">
                     <div class="h-5 bg-gray-200 rounded w-2/3"></div>
+                    <div class="h-5 bg-gray-200 rounded w-1/4"></div>
                 </div>
-                <div class="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-                <div class="h-3 bg-gray-200 rounded w-1/4 mb-5 mt-2"></div>
-                <div class="mt-auto w-full h-10 md:h-12 bg-gray-200 rounded-xl"></div>
+                <div class="h-3 bg-gray-200 rounded w-1/3 mb-5 mt-2"></div>
+                <div class="mt-auto w-full h-12 bg-gray-200 rounded-xl"></div>
             </div>
         </div>
       `).join('');
@@ -393,54 +394,79 @@ import { supabase } from './supabaseClient.js';
 
     if (productGrid) {
       if (categoryProds.length === 0) {
-        productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500 py-8">No products found in this category.</p>`;
+        productGrid.innerHTML = `<p class="col-span-full w-full text-center text-gray-500 py-8">No products found in this category.</p>`;
       } else {
         productGrid.innerHTML = categoryProds.map(prod => {
           let imagesArr = [];
           try {
-            imagesArr = Array.isArray(prod.images) ? prod.images : JSON.parse(prod.images || '[]');
-          } catch (e) {
-            imagesArr = [prod.images || 'https://via.placeholder.com/300'];
+             imagesArr = Array.isArray(prod.images) ? prod.images : JSON.parse(prod.images || '[]');
+          } catch(e) {
+             imagesArr = [prod.images || 'https://via.placeholder.com/300'];
           }
 
-          let priceDisplayHTML = getPriceDisplayHTML(prod);
+          let discountPercent = parseFloat(prod.discount || prod.discount_percentage || 0);
+          let priceDisplayHTML = `<p class="text-pink-500 font-bold text-base md:text-lg whitespace-nowrap mt-0.5">₹${parseFloat(prod.price).toFixed(2)}</p>`;
+          
+          if (discountPercent > 0) {
+              let originalPrice = parseFloat(prod.price) / (1 - (discountPercent / 100));
+              priceDisplayHTML = `
+                  <div class="flex flex-col items-end">
+                      <p class="text-pink-500 font-bold text-base md:text-lg whitespace-nowrap leading-tight">₹${parseFloat(prod.price).toFixed(2)}</p>
+                      <div class="flex items-center gap-1.5 mt-0.5">
+                          <p class="text-gray-400 text-[11px] md:text-xs line-through">₹${originalPrice.toFixed(2)}</p>
+                          <span class="text-[9px] md:text-[10px] font-bold text-green-600 bg-green-100 px-1.5 py-0.5 rounded-md">${discountPercent}% OFF</span>
+                      </div>
+                  </div>
+              `;
+          } else if (prod.original_price && parseFloat(prod.original_price) > parseFloat(prod.price)) {
+              let originalPrice = parseFloat(prod.original_price);
+              let calculatedDiscount = Math.round(((originalPrice - parseFloat(prod.price)) / originalPrice) * 100);
+              priceDisplayHTML = `
+                  <div class="flex flex-col items-end">
+                      <p class="text-pink-500 font-bold text-base md:text-lg whitespace-nowrap leading-tight">₹${parseFloat(prod.price).toFixed(2)}</p>
+                      <div class="flex items-center gap-1.5 mt-0.5">
+                          <p class="text-gray-400 text-[11px] md:text-xs line-through">₹${originalPrice.toFixed(2)}</p>
+                          <span class="text-[9px] md:text-[10px] font-bold text-green-600 bg-green-100 px-1.5 py-0.5 rounded-md">${calculatedDiscount}% OFF</span>
+                      </div>
+                  </div>
+              `;
+          }
 
+          // ADDED: min-w-0 w-64 md:w-72 flex-shrink-0 snap-center to prevent squishing
           return `
-            <div onclick="openProductModal('${prod.id}')" class="product-card min-w-0 bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col relative group overflow-hidden cursor-pointer">
-                
-                <div class="relative w-full aspect-square bg-[#FDFBF7] overflow-hidden group/slider rounded-t-[1.5rem] md:rounded-t-[2rem]">
+            <div class="product-card min-w-0 w-64 md:w-72 flex-shrink-0 snap-center bg-white rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col relative group overflow-hidden">
+                <div class="relative w-full aspect-[4/5] bg-white overflow-hidden group/slider rounded-t-[2rem]">
                     <div id="slider-${prod.id}" class="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory h-full w-full no-scrollbar relative z-10 touch-pan-x" onscroll="updateSliderDots(event, '${prod.id}')">
                         ${imagesArr.map((img) => `
-                            <div class="min-w-full h-full flex-none snap-center flex items-center justify-center p-3 md:p-6">
-                                <img src="${img}" alt="${prod.title}" class="max-w-full max-h-full object-contain transition-transform duration-500 group-hover/slider:scale-105">
+                            <div class="w-full h-full flex-none snap-center flex items-center justify-center p-4">
+                                <img src="${img}" alt="${prod.title}" onclick="openProductModal('${prod.id}')" class="w-full h-full object-contain cursor-pointer transition-transform duration-500 group-hover/slider:scale-105">
                             </div>
                         `).join('')}
                     </div>
                     
                     ${imagesArr.length > 1 ? `
-                        <button onclick="event.stopPropagation(); scrollProductSlider(event, '${prod.id}', -1)" class="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none">‹</button>
-                        <button onclick="event.stopPropagation(); scrollProductSlider(event, '${prod.id}', 1)" class="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none">›</button>
+                        <button onclick="scrollProductSlider(event, '${prod.id}', -1)" class="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none cursor-pointer">‹</button>
+                        <button onclick="scrollProductSlider(event, '${prod.id}', 1)" class="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none cursor-pointer">›</button>
                         
-                        <div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/10 to-transparent pointer-events-none rounded-b-[1.5rem] md:rounded-b-[2rem] z-20"></div>
+                        <div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/10 to-transparent pointer-events-none rounded-b-2xl z-20"></div>
                         <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none z-30" id="dots-${prod.id}">
                             ${imagesArr.map((_, i) => `<span class="w-1.5 h-1.5 rounded-full transition-all duration-300 ${i === 0 ? 'bg-white scale-125' : 'bg-white/60'} shadow-sm border border-gray-300/30"></span>`).join('')}
                         </div>
                     ` : ''}
                 </div>
 
-                <div class="p-4 md:p-5 flex flex-col flex-grow border-t border-gray-50 relative z-20 bg-white">
-                    <h3 class="font-semibold text-gray-900 group-hover:text-pink-500 transition-colors text-sm md:text-lg line-clamp-2 leading-tight z-10 mb-1 break-words">
-                        ${prod.title}
-                    </h3>
-                    
-                    <div class="mb-2">
+                <div class="p-5 flex flex-col flex-grow border-t border-gray-50 relative z-20 bg-white">
+                    <div class="flex justify-between items-start mb-2 gap-2">
+                        <h3 onclick="openProductModal('${prod.id}')" class="font-semibold text-gray-900 cursor-pointer hover:text-pink-500 transition-colors text-base md:text-lg line-clamp-2 leading-tight flex-grow">
+                            ${prod.title}
+                        </h3>
                         ${priceDisplayHTML}
                     </div>
                     
-                    <p class="text-gray-400 text-[10px] md:text-sm mb-4 mt-auto line-clamp-1">${prod.category || 'Premium Plushie'}</p>
+                    <p class="text-gray-400 text-xs md:text-sm mb-5 mt-auto line-clamp-1">${prod.category || 'Premium Plushie'}</p>
                     
-                    <button id="btn-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-${prod.id}')" class="mt-auto w-full bg-brand-900 text-white py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-1.5 group/btn z-10">
-                        <svg class="w-3.5 h-3.5 md:w-4 md:h-4 group-hover/btn:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                    <button id="btn-${prod.id}" onclick="addToCart('${prod.id}', 'btn-${prod.id}')" class="mt-auto w-full bg-brand-900 text-white py-3 rounded-xl text-sm font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-2 group/btn">
+                        <svg class="w-4 h-4 group-hover/btn:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
                         Add to Cart
                     </button>
                 </div>
