@@ -135,25 +135,26 @@ import { supabase } from './supabaseClient.js';
     }
   }
 
-  // <-- ADDED: Size selection helper
-function selectSize(sizeName, sizePrice, btnEl) {
-      selectedSize = sizeName;
-      
-      // Reset all size buttons
-      document.querySelectorAll('.size-btn').forEach(btn => {
-          btn.classList.remove('border-pink-500', 'bg-pink-50', 'text-pink-600');
-          btn.classList.add('border-gray-300', 'text-gray-700');
-      });
-      
-      // Highlight selected button
-      btnEl.classList.remove('border-gray-300', 'text-gray-700');
-      btnEl.classList.add('border-pink-500', 'bg-pink-50', 'text-pink-600');
 
-      // Update the main price display if a specific price exists for this size
-      const priceContainer = document.getElementById('modal-price');
-      if (priceContainer && sizePrice > 0) {
-          priceContainer.innerHTML = `<span class="text-pink-500 font-bold text-2xl">₹${parseFloat(sizePrice).toFixed(2)}</span>`;
-      }
+// <-- ADDED: Size selection helper (Updated for Dynamic Pricing)
+  function selectSize(sizeName, sizePrice, btnElement) {
+    selectedSize = sizeName;
+    
+    document.querySelectorAll('.size-btn').forEach(btn => {
+      btn.classList.remove('border-pink-500', 'bg-pink-50', 'text-pink-600', 'ring-2', 'ring-pink-400');
+      btn.classList.add('border-gray-300', 'text-gray-700');
+    });
+    
+    if (btnElement) {
+      btnElement.classList.remove('border-gray-300', 'text-gray-700');
+      btnElement.classList.add('border-pink-500', 'bg-pink-50', 'text-pink-600', 'ring-2', 'ring-pink-400');
+    }
+
+    // Update the main price display if a specific price exists for this size
+    const priceContainer = document.getElementById('modal-price');
+    if (priceContainer && sizePrice > 0) {
+        priceContainer.innerHTML = `<span class="text-pink-500 font-bold text-2xl">₹${sizePrice.toFixed(2)}</span>`;
+    }
   }
 
   // <-- UPDATED: Accepts chosenSize parameter
@@ -588,7 +589,7 @@ function selectSize(sizeName, sizePrice, btnEl) {
       }
     }
 
-    if (sizesContainer && sizesOptions) {
+if (sizesContainer && sizesOptions) {
       if (sizes.length > 0) {
         sizesContainer.classList.remove('hidden');
         sizesOptions.innerHTML = sizes.map(sizeString => {
@@ -602,11 +603,13 @@ function selectSize(sizeName, sizePrice, btnEl) {
                 sizePrice = Math.max(0, parseFloat(parts[1].trim() || 0));
             }
 
-            return `<button type="button" 
-                    onclick="selectSize('${sizeName}', ${sizePrice}, this)"
-                    class="size-btn border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-gray-700 hover:border-pink-500 transition-all">
-              ${sizeName}
-            </button>`;
+            return `
+              <button type="button" 
+                      onclick="selectSize('${sizeName}', ${sizePrice}, this)"
+                      class="size-btn border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-gray-700 hover:border-pink-500 transition-all">
+                ${sizeName}
+              </button>
+            `;
         }).join('');
       } else {
         sizesContainer.classList.add('hidden');
