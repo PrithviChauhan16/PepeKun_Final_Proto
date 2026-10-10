@@ -183,6 +183,15 @@
                                 <input type="text" id="prod-colors" placeholder="e.g. Pink, Olive Green, White"
                                     class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:border-pink-400 text-sm">
                             </div>
+
+                            <!-- DYNAMIC SIZES FIELD -->
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Available Sizes <span
+                                        class="text-xs text-gray-400 font-normal">(Comma-separated, e.g. S, M, L, XL or 20cm, 30cm)</span></label>
+                                <input type="text" id="prod-sizes" placeholder="e.g. S, M, L, XL or 20cm, 30cm"
+                                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:border-pink-400 text-sm">
+                            </div>
+
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Categories <span
                                         class="text-xs text-gray-400 font-normal">(tick one or more)</span></label>
@@ -813,6 +822,7 @@
             document.getElementById('prod-original-price').value = '';
             document.getElementById('prod-discount').value = '';
             document.getElementById('prod-price').value = '';
+            document.getElementById('prod-sizes').value = '';
             populateCategoryDropdown();
             formContainer.classList.remove('hidden');
             formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -905,6 +915,10 @@
                 const colorsList = (Array.isArray(prod.colors) && prod.colors.length > 0)
                     ? `<div class="text-[11px] text-gray-500 mb-2 font-medium">🎨 Colors: ${prod.colors.join(', ')}</div>`
                     : '';
+                
+                const sizesList = (Array.isArray(prod.sizes) && prod.sizes.length > 0)
+                    ? `<div class="text-[11px] text-gray-500 mb-2 font-medium">📏 Sizes: ${prod.sizes.join(', ')}</div>`
+                    : '';
 
                 const isBestSeller = Boolean(prod.is_bestseller);
 
@@ -944,6 +958,7 @@
                 </div>
                 <div class="mb-1">${badgesHtml}</div>
                 ${colorsList}
+                ${sizesList}
                 <p class="text-gray-500 text-xs line-clamp-2 mb-4">${prod.description || ''}</p>
             </div>
             <div class="absolute top-3 right-3 flex items-center gap-2">
@@ -1006,6 +1021,9 @@
             const colorsRaw = document.getElementById('prod-colors').value.trim();
             const colors = colorsRaw ? colorsRaw.split(',').map(c => c.trim()).filter(Boolean) : [];
 
+            const sizesRaw = document.getElementById('prod-sizes').value.trim();
+            const sizes = sizesRaw ? sizesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
             if (!title || mainIds.length === 0 || isNaN(finalPriceVal)) {
                 alert('Please fill in the product title, tick at least one main category, and set a price/original price.');
                 return;
@@ -1058,7 +1076,8 @@
                     description,
                     specifications,
                     images: imageUrls,
-                    colors: colors
+                    colors: colors,
+                    sizes: sizes
                 };
 
                 const { data: newProduct, error: insertError } = await client
