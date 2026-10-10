@@ -12,6 +12,7 @@ import { supabase } from './supabaseClient.js';
   let collectionCategories = [];
   let currentUser = null;
   let selectedColor = null;
+  let selectedSize = null; // <-- ADDED: Track selected size
 
   // Helper Function for Generating Dynamic Price HTML with Discount Badges
   function getPriceDisplayHTML(prod) {
@@ -98,7 +99,8 @@ import { supabase } from './supabaseClient.js';
           ...item.products,
           quantity: item.quantity,
           cart_id: item.id,
-          selected_color: item.selected_color || null
+          selected_color: item.selected_color || null,
+          selected_size: item.selected_size || null // <-- ADDED: Map selected size from DB
         }));
         updateCartUI();
       }
@@ -129,7 +131,21 @@ import { supabase } from './supabaseClient.js';
     }
   }
 
-  async function addToCart(productId, sourceBtnId = null, chosenColor = null) {
+  // <-- ADDED: Size selection helper
+  function selectSize(size, btnElement) {
+    selectedSize = size;
+    document.querySelectorAll('.size-btn').forEach(btn => {
+      btn.classList.remove('border-pink-500', 'bg-pink-50', 'text-pink-600', 'ring-2', 'ring-pink-400');
+      btn.classList.add('border-gray-300', 'text-gray-700');
+    });
+    if (btnElement) {
+      btnElement.classList.remove('border-gray-300', 'text-gray-700');
+      btnElement.classList.add('border-pink-500', 'bg-pink-50', 'text-pink-600', 'ring-2', 'ring-pink-400');
+    }
+  }
+
+  // <-- UPDATED: Accepts chosenSize parameter
+  async function addToCart(productId, sourceBtnId = null, chosenColor = null, chosenSize = null) {
     const product = products.find(p => String(p.id) === String(productId));
     if (!product && !currentUser) return;
 
@@ -142,9 +158,26 @@ import { supabase } from './supabaseClient.js';
       }
     }
 
+    // <-- ADDED: Validate available sizes
+    let availableSizes = [];
+    try {
+      availableSizes = Array.isArray(product?.sizes) ? product.sizes : JSON.parse(product?.sizes || '[]');
+    } catch (e) {
+      if (typeof product?.sizes === 'string') {
+        availableSizes = product.sizes.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+
     if (availableColors.length > 0 && !chosenColor) {
       openProductModal(productId);
       alert('Please select a color option before adding to cart.');
+      return;
+    }
+
+    // <-- ADDED: Block add-to-cart if a size isn't selected
+    if (availableSizes.length > 0 && !chosenSize) {
+      openProductModal(productId);
+      alert('Please select a size option before adding to cart.');
       return;
     }
 
@@ -171,6 +204,13 @@ import { supabase } from './supabaseClient.js';
           query = query.is('selected_color', null);
         }
 
+        // <-- ADDED: Include size in DB check
+        if (chosenSize) {
+          query = query.eq('selected_size', chosenSize);
+        } else {
+          query = query.is('selected_size', null);
+        }
+
         const { data: existingItem, error: fetchErr } = await query.maybeSingle();
         if (fetchErr) throw fetchErr;
 
@@ -188,20 +228,24 @@ import { supabase } from './supabaseClient.js';
               user_id: currentUser.id,
               product_id: productId,
               quantity: 1,
-              selected_color: chosenColor || null
+              selected_color: chosenColor || null,
+              selected_size: chosenSize || null // <-- ADDED: Save size to DB
             }]);
           if (insertErr) throw insertErr;
         }
 
         await fetchUserCartFromSupabase();
       } else {
+        // <-- UPDATED: Include size in local cart search
         const existingIndex = cart.findIndex(p =>
-          String(p.id) === String(productId) && p.selected_color === (chosenColor || null)
+          String(p.id) === String(productId) && 
+          p.selected_color === (chosenColor || null) &&
+          p.selected_size === (chosenSize || null)
         );
         if (existingIndex > -1) {
           cart[existingIndex].quantity = (Number(cart[existingIndex].quantity) || 1) + 1;
         } else if (product) {
-          cart.push({ ...product, quantity: 1, selected_color: chosenColor || null });
+          cart.push({ ...product, quantity: 1, selected_color: chosenColor || null, selected_size: chosenSize || null });
         }
         updateCartUI();
       }
@@ -329,7 +373,7 @@ import { supabase } from './supabaseClient.js';
     row.scrollBy({ left: direction * Math.max(row.clientWidth * 0.8, 220), behavior: 'smooth' });
   }
 
-  // 4. Primary Category Drilldown View
+  // 4. Primary & Collection Category Drilldown View
   async function showCategoryProducts(categoryId, categoryName) {
     const categoriesSection = document.getElementById('categories');
     const collectionsSection = document.getElementById('collections-section');
@@ -339,18 +383,17 @@ import { supabase } from './supabaseClient.js';
 
     if (categoryTitle) categoryTitle.textContent = categoryName;
 
-    // ADDED: w-64 md:w-72 flex-shrink-0 snap-center to the skeleton loader
     if (productGrid) {
       productGrid.innerHTML = Array(6).fill(`
-        <div class="w-64 md:w-72 flex-shrink-0 snap-center bg-white rounded-[2rem] shadow-sm border border-gray-100 flex flex-col relative overflow-hidden animate-pulse">
-            <div class="w-full aspect-[4/5] bg-gray-200 rounded-t-[2rem]"></div>
-            <div class="p-5 flex flex-col flex-grow border-t border-gray-50 bg-white">
+        <div class="w-64 md:w-72 flex-shrink-0 snap-center bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-gray-100 flex flex-col relative overflow-hidden animate-pulse">
+            <div class="w-full aspect-square bg-gray-100 rounded-t-[1.5rem] md:rounded-t-[2rem]"></div>
+            <div class="p-4 md:p-5 flex flex-col flex-grow border-t border-gray-50 bg-white">
                 <div class="flex justify-between items-start mb-1 gap-2">
                     <div class="h-5 bg-gray-200 rounded w-2/3"></div>
-                    <div class="h-5 bg-gray-200 rounded w-1/4"></div>
                 </div>
-                <div class="h-3 bg-gray-200 rounded w-1/3 mb-5 mt-2"></div>
-                <div class="mt-auto w-full h-12 bg-gray-200 rounded-xl"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                <div class="h-3 bg-gray-200 rounded w-1/4 mb-5 mt-2"></div>
+                <div class="mt-auto w-full h-10 md:h-12 bg-gray-200 rounded-xl"></div>
             </div>
         </div>
       `).join('');
@@ -399,74 +442,49 @@ import { supabase } from './supabaseClient.js';
         productGrid.innerHTML = categoryProds.map(prod => {
           let imagesArr = [];
           try {
-             imagesArr = Array.isArray(prod.images) ? prod.images : JSON.parse(prod.images || '[]');
-          } catch(e) {
-             imagesArr = [prod.images || 'https://via.placeholder.com/300'];
+            imagesArr = Array.isArray(prod.images) ? prod.images : JSON.parse(prod.images || '[]');
+          } catch (e) {
+            imagesArr = [prod.images || 'https://via.placeholder.com/300'];
           }
 
-          let discountPercent = parseFloat(prod.discount || prod.discount_percentage || 0);
-          let priceDisplayHTML = `<p class="text-pink-500 font-bold text-base md:text-lg whitespace-nowrap mt-0.5">₹${parseFloat(prod.price).toFixed(2)}</p>`;
-          
-          if (discountPercent > 0) {
-              let originalPrice = parseFloat(prod.price) / (1 - (discountPercent / 100));
-              priceDisplayHTML = `
-                  <div class="flex flex-col items-end">
-                      <p class="text-pink-500 font-bold text-base md:text-lg whitespace-nowrap leading-tight">₹${parseFloat(prod.price).toFixed(2)}</p>
-                      <div class="flex items-center gap-1.5 mt-0.5">
-                          <p class="text-gray-400 text-[11px] md:text-xs line-through">₹${originalPrice.toFixed(2)}</p>
-                          <span class="text-[9px] md:text-[10px] font-bold text-green-600 bg-green-100 px-1.5 py-0.5 rounded-md">${discountPercent}% OFF</span>
-                      </div>
-                  </div>
-              `;
-          } else if (prod.original_price && parseFloat(prod.original_price) > parseFloat(prod.price)) {
-              let originalPrice = parseFloat(prod.original_price);
-              let calculatedDiscount = Math.round(((originalPrice - parseFloat(prod.price)) / originalPrice) * 100);
-              priceDisplayHTML = `
-                  <div class="flex flex-col items-end">
-                      <p class="text-pink-500 font-bold text-base md:text-lg whitespace-nowrap leading-tight">₹${parseFloat(prod.price).toFixed(2)}</p>
-                      <div class="flex items-center gap-1.5 mt-0.5">
-                          <p class="text-gray-400 text-[11px] md:text-xs line-through">₹${originalPrice.toFixed(2)}</p>
-                          <span class="text-[9px] md:text-[10px] font-bold text-green-600 bg-green-100 px-1.5 py-0.5 rounded-md">${calculatedDiscount}% OFF</span>
-                      </div>
-                  </div>
-              `;
-          }
+          let priceDisplayHTML = getPriceDisplayHTML(prod);
 
-          // ADDED: min-w-0 w-64 md:w-72 flex-shrink-0 snap-center to prevent squishing
           return `
-            <div class="product-card min-w-0 w-64 md:w-72 flex-shrink-0 snap-center bg-white rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col relative group overflow-hidden">
-                <div class="relative w-full aspect-[4/5] bg-white overflow-hidden group/slider rounded-t-[2rem]">
-                    <div id="slider-${prod.id}" class="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory h-full w-full no-scrollbar relative z-10" onscroll="updateSliderDots(event, '${prod.id}')">
+            <div onclick="openProductModal('${prod.id}')" class="product-card min-w-0 w-64 md:w-72 flex-shrink-0 snap-center bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col relative group overflow-hidden cursor-pointer">
+                
+                <div class="relative w-full aspect-square bg-[#FDFBF7] overflow-hidden group/slider rounded-t-[1.5rem] md:rounded-t-[2rem]">
+                    <div id="slider-${prod.id}" class="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory h-full w-full no-scrollbar relative z-10 touch-pan-x" onscroll="updateSliderDots(event, '${prod.id}')">
                         ${imagesArr.map((img) => `
-                            <div class="w-full h-full flex-none snap-center flex items-center justify-center p-4">
-                                <img src="${img}" alt="${prod.title}" onclick="openProductModal('${prod.id}')" class="w-full h-full object-contain cursor-pointer transition-transform duration-500 group-hover/slider:scale-105">
+                            <div class="min-w-full h-full flex-none snap-center flex items-center justify-center p-3 md:p-6">
+                                <img src="${img}" alt="${prod.title}" class="max-w-full max-h-full object-contain transition-transform duration-500 group-hover/slider:scale-105">
                             </div>
                         `).join('')}
                     </div>
                     
                     ${imagesArr.length > 1 ? `
-                        <button onclick="scrollProductSlider(event, '${prod.id}', -1)" class="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none cursor-pointer">‹</button>
-                        <button onclick="scrollProductSlider(event, '${prod.id}', 1)" class="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none cursor-pointer">›</button>
+                        <button onclick="event.stopPropagation(); scrollProductSlider(event, '${prod.id}', -1)" class="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none">‹</button>
+                        <button onclick="event.stopPropagation(); scrollProductSlider(event, '${prod.id}', 1)" class="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 border border-gray-200 backdrop-blur hover:bg-gray-50 text-gray-900 w-8 h-8 rounded-full items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all shadow-md z-30 pb-1 text-xl leading-none">›</button>
                         
-                        <div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/10 to-transparent pointer-events-none rounded-b-2xl z-20"></div>
+                        <div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/10 to-transparent pointer-events-none rounded-b-[1.5rem] md:rounded-b-[2rem] z-20"></div>
                         <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none z-30" id="dots-${prod.id}">
                             ${imagesArr.map((_, i) => `<span class="w-1.5 h-1.5 rounded-full transition-all duration-300 ${i === 0 ? 'bg-white scale-125' : 'bg-white/60'} shadow-sm border border-gray-300/30"></span>`).join('')}
                         </div>
                     ` : ''}
                 </div>
 
-                <div class="p-5 flex flex-col flex-grow border-t border-gray-50 relative z-20 bg-white">
-                    <div class="flex justify-between items-start mb-2 gap-2">
-                        <h3 onclick="openProductModal('${prod.id}')" class="font-semibold text-gray-900 cursor-pointer hover:text-pink-500 transition-colors text-base md:text-lg line-clamp-2 leading-tight flex-grow">
-                            ${prod.title}
-                        </h3>
+                <div class="p-4 md:p-5 flex flex-col flex-grow border-t border-gray-50 relative z-20 bg-white">
+                    <h3 class="font-semibold text-gray-900 group-hover:text-pink-500 transition-colors text-sm md:text-lg line-clamp-2 leading-tight z-10 mb-1 break-words">
+                        ${prod.title}
+                    </h3>
+                    
+                    <div class="mb-2">
                         ${priceDisplayHTML}
                     </div>
                     
-                    <p class="text-gray-400 text-xs md:text-sm mb-5 mt-auto line-clamp-1">${prod.category || 'Premium Plushie'}</p>
+                    <p class="text-gray-400 text-[10px] md:text-sm mb-4 mt-auto line-clamp-1">${prod.category || 'Premium Plushie'}</p>
                     
-                    <button id="btn-${prod.id}" onclick="addToCart('${prod.id}', 'btn-${prod.id}')" class="mt-auto w-full bg-brand-900 text-white py-3 rounded-xl text-sm font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-2 group/btn">
-                        <svg class="w-4 h-4 group-hover/btn:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                    <button id="btn-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-${prod.id}')" class="mt-auto w-full bg-brand-900 text-white py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-1.5 group/btn z-10">
+                        <svg class="w-3.5 h-3.5 md:w-4 md:h-4 group-hover/btn:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
                         Add to Cart
                     </button>
                 </div>
@@ -497,7 +515,9 @@ import { supabase } from './supabaseClient.js';
     const prod = products.find(p => String(p.id) === String(productId));
     if (!prod) return;
 
+    // <-- ADDED: Reset states on modal open
     selectedColor = null;
+    selectedSize = null; 
 
     const modal = document.getElementById('product-modal');
     const title = document.getElementById('modal-title');
@@ -508,6 +528,9 @@ import { supabase } from './supabaseClient.js';
     const addCartBtn = document.getElementById('modal-add-cart-btn');
     const colorsContainer = document.getElementById('modal-colors-container');
     const colorsOptions = document.getElementById('modal-color-options');
+    // <-- ADDED: Size containers
+    const sizesContainer = document.getElementById('modal-sizes-container');
+    const sizesOptions = document.getElementById('modal-size-options');
 
     let images = [];
     try {
@@ -543,12 +566,38 @@ import { supabase } from './supabaseClient.js';
       }
     }
 
+    // <-- ADDED: Parse and Render Sizes
+    let sizes = [];
+    try {
+      sizes = Array.isArray(prod.sizes) ? prod.sizes : JSON.parse(prod.sizes || '[]');
+    } catch (e) {
+      if (typeof prod.sizes === 'string') {
+        sizes = prod.sizes.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+
+    if (sizesContainer && sizesOptions) {
+      if (sizes.length > 0) {
+        sizesContainer.classList.remove('hidden');
+        sizesOptions.innerHTML = sizes.map(size => `
+          <button type="button" 
+                  onclick="selectSize('${size}', this)"
+                  class="size-btn border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-gray-700 hover:border-pink-500 transition-all">
+            ${size}
+          </button>
+        `).join('');
+      } else {
+        sizesContainer.classList.add('hidden');
+        sizesOptions.innerHTML = '';
+      }
+    }
+
     const modalSwipeTrack = document.getElementById('modal-swipe-track');
     if (modalSwipeTrack) {
       const escapedImages = JSON.stringify(images).replace(/"/g, '&quot;');
       modalSwipeTrack.innerHTML = images.map((img, index) => `
           <div class="w-full h-full flex-none snap-center flex items-center justify-center p-4">
-              <img src="${img}" onclick="openFullscreenGallery(${escapedImages}, ${index})" class="w-full h-full object-contain cursor-zoom-in" title="Tap to expand fullscreen">
+              <img src="${img}" onclick="openFullscreenGallery(${escapedImages},${index})" class="w-full h-full object-contain cursor-zoom-in" title="Tap to expand fullscreen">
           </div>
       `).join('');
       modalSwipeTrack.scrollLeft = 0;
@@ -602,7 +651,8 @@ import { supabase } from './supabaseClient.js';
     }
 
     if (addCartBtn) {
-      addCartBtn.onclick = () => addToCart(prod.id, 'modal-add-cart-btn', selectedColor);
+      // <-- UPDATED: Passing selectedSize to addToCart
+      addCartBtn.onclick = () => addToCart(prod.id, 'modal-add-cart-btn', selectedColor, selectedSize);
     }
 
     if (modal) {
@@ -711,7 +761,7 @@ import { supabase } from './supabaseClient.js';
 
   function updateGalleryCounter(index, total) {
     const counter = document.getElementById('gallery-counter');
-    if (counter) counter.innerText = `${index + 1} / ${total}`;
+    if (counter) counter.innerText = `${index + 1} /${total}`;
   }
 
   function closeFullscreenGallery() {
@@ -777,8 +827,8 @@ import { supabase } from './supabaseClient.js';
     }
   }
 
-  // 9. Best Sellers Marquee Showcase
-async function loadCutestPepesShowcase() {
+  // 9. Best Sellers Marquee Showcase (Auto-Slide + Manual Swipe)
+  async function loadCutestPepesShowcase() {
     const track = document.getElementById('cutest-pepes-track');
     if (!track) return;
 
@@ -789,14 +839,19 @@ async function loadCutestPepesShowcase() {
         .eq('is_bestseller', true);
 
       if (prodErr || !promoProducts || promoProducts.length === 0) {
-        const { data: fallbackProds } = await supabase.from('products').select('*').limit(6);
+        const { data: fallbackProds } = await supabase
+          .from('products')
+          .select('*')
+          .limit(6);
         promoProducts = fallbackProds || [];
       }
 
       if (promoProducts.length === 0) return;
 
       promoProducts.forEach(p => {
-        if (!products.some(existing => existing.id === p.id)) products.push(p);
+        if (!products.some(existing => existing.id === p.id)) {
+          products.push(p);
+        }
       });
 
       const cardsHTML = promoProducts.map(prod => {
@@ -806,84 +861,16 @@ async function loadCutestPepesShowcase() {
         } catch (e) {
           imagesArr = [prod.images || '1.png'];
         }
+
         let priceDisplayHTML = getPriceDisplayHTML(prod);
 
         return `
           <div onclick="openProductModal('${prod.id}')" class="product-card min-w-0 w-64 md:w-72 flex-shrink-0 bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col relative group overflow-hidden cursor-pointer">
-              <!-- (Your existing card HTML remains exactly the same here) -->
+              
               <div class="relative w-full aspect-square bg-[#FDFBF7] overflow-hidden group/slider rounded-t-[1.5rem] md:rounded-t-[2rem]">
-                  <img src="${imagesArr[0]}" alt="${prod.title}" class="w-full h-full object-contain transition-transform duration-500 group-hover/slider:scale-105 p-6">
-              </div>
-              <div class="p-4 md:p-5 flex flex-col flex-grow border-t border-gray-50 relative z-20 bg-white">
-                  <h3 class="font-semibold text-gray-900 group-hover:text-pink-500 transition-colors text-sm md:text-lg line-clamp-2 leading-tight z-10 mb-1 break-words">${prod.title}</h3>
-                  <div class="mb-2">${priceDisplayHTML}</div>
-                  <p class="text-gray-400 text-[10px] md:text-sm mb-4 mt-auto line-clamp-1">${prod.category || 'Best Seller'}</p>
-                  <button id="btn-promo-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-promo-${prod.id}')" class="mt-auto w-full bg-brand-900 text-white py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-1.5 group/btn z-10">
-                      Add to Cart
-                  </button>
-              </div>
-          </div>
-        `;
-      }).join('');
-
-      // Inject cards (tripled to ensure smooth infinite looping while swiping)
-      track.innerHTML = cardsHTML + cardsHTML + cardsHTML;
-
-      // --- NEW AUTO-SCROLL LOGIC ---
-      let isInteracting = false;
-      let scrollSpeed = 1; // Adjust speed (higher is faster)
-      
-      // Pause sliding when user is swiping or hovering
-      const pauseScroll = () => isInteracting = true;
-      const resumeScroll = () => isInteracting = false;
-
-      track.addEventListener('mouseenter', pauseScroll);
-      track.addEventListener('mouseleave', resumeScroll);
-      track.addEventListener('touchstart', pauseScroll, { passive: true });
-      track.addEventListener('touchend', resumeScroll);
-
-      // Continuous loop
-      setInterval(() => {
-        if (!isInteracting) {
-          track.scrollLeft += scrollSpeed;
-          // Infinite loop reset: if scrolled past 1/3 of the duplicated content, snap back
-          if (track.scrollLeft >= track.scrollWidth / 3) {
-            track.scrollLeft = 0;
-          }
-        }
-      }, 20);
-
-    } catch (err) {
-      console.error('Error loading Best Sellers showcase:', err);
-    }
-  }
-
-  // 10. Expose global handlers needed for inline onclick attributes in HTML
-  window.showCategoryProducts = showCategoryProducts;
-  window.hideProducts = hideProducts;
-  window.scrollCategoryRow = scrollCategoryRow;
-  window.openProductModal = openProductModal;
-  window.closeModal = closeModal;
-  window.addToCart = addToCart;
-  window.selectColor = selectColor;
-  window.updateSliderDots = updateSliderDots;
-  window.scrollProductSlider = scrollProductSlider;
-  window.scrollModalSlider = scrollModalSlider;
-  window.changeModalImage = changeModalImage;
-  window.openFullscreenGallery = openFullscreenGallery;
-  window.closeFullscreenGallery = closeFullscreenGallery;
-  window.scrollGallerySlider = scrollGallerySlider;
-  window.loadCutestPepesShowcase = loadCutestPepesShowcase;
-
-  // Initialize on page load
-  document.addEventListener('DOMContentLoaded', () => {
-    checkUserSession();
-    loadCategoriesAndCollections();
-    loadCutestPepesShowcase();
-
-    const contactForm = document.getElementById('contact-form');
-    if (contactForm) {
-      contactForm.addEventListener('submit', handleContactSubmit);
-    }
-  });
-})();
+                  <div id="slider-promo-${prod.id}" class="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory h-full w-full no-scrollbar relative z-10 touch-pan-x" onscroll="updateSliderDots(event, 'promo-${prod.id}')">
+                      ${imagesArr.map((img) => `
+                          <div class="min-w-full h-full flex-none snap-center flex items-center justify-center p-3 md:p-6">
+                              <img src="${img}" alt="${prod.title}" class="max-w-full max-h-full object-contain transition-transform duration-500 group-hover/slider:scale-105">
+                          </div>
+                      `).
