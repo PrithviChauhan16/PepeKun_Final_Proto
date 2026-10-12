@@ -185,12 +185,12 @@
                             </div>
 
                             <!-- DYNAMIC SIZES FIELD -->
-                           <div class="md:col-span-2">
-    <label class="block text-sm font-medium text-gray-700 mb-2">Available Sizes <span
-            class="text-xs text-gray-400 font-normal">(Use Size:Price, e.g., 35cm:900, 50cm:1200)</span></label>
-    <input type="text" id="prod-sizes" placeholder="e.g. 35cm:900, 50cm:1200"
-        class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:border-pink-400 text-sm">
-</div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Available Sizes <span
+                                        class="text-xs text-gray-400 font-normal">(Use Size:Price, e.g., 35cm:900, 50cm:1200)</span></label>
+                                <input type="text" id="prod-sizes" placeholder="e.g. 35cm:900, 50cm:1200"
+                                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:border-pink-400 text-sm">
+                            </div>
 
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Categories <span
@@ -590,6 +590,7 @@
             const items = Array.isArray(order.items) ? order.items : [];
             const itemsListHtml = items.map(i => {
                 const itemColor = i.selected_color || i.color || '';
+                const itemSize = i.selected_size || i.size || '';
                 return `
                 <div class="flex justify-between items-center py-2 border-b border-gray-100">
                     <div class="flex items-center gap-3">
@@ -598,6 +599,7 @@
                             <p class="font-medium text-gray-900 text-xs">
                                 ${i.title || 'Product'} 
                                 ${itemColor ? `<span class="ml-1 text-[10px] bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded-full font-medium">Color: ${itemColor}</span>` : ''}
+                                ${itemSize ? `<span class="ml-1 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">Size: ${itemSize}</span>` : ''}
                             </p>
                             <p class="text-[11px] text-gray-400">Qty: ${i.quantity || 1}</p>
                         </div>
@@ -783,7 +785,7 @@
             `;
 
             if (replyBtn) {
-                replyBtn.href = `mailto:${inq.email}?subject=Regarding your inquiry on PEPEKUN&body=Hi ${encodeURIComponent(inq.name || '')},%0D%0A%0D%0A`;
+                replyBtn.href = `mailto:${inq.email}?subject=Regarding your inquiry on PEPE KUN&body=Hi ${encodeURIComponent(inq.name || '')},%0D%0A%0D%0A`;
             }
 
             document.getElementById('inquiry-modal').classList.remove('hidden');
@@ -819,10 +821,6 @@
             form.reset();
             document.getElementById('form-title').innerText = 'Add New Product';
             document.getElementById('submit-btn').innerText = 'Save Product';
-            document.getElementById('prod-original-price').value = '';
-            document.getElementById('prod-discount').value = '';
-            document.getElementById('prod-price').value = '';
-            document.getElementById('prod-sizes').value = '';
             populateCategoryDropdown();
             formContainer.classList.remove('hidden');
             formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -846,11 +844,6 @@
                 .order('name', { ascending: true });
 
             if (error) return;
-
-            cachedCategoriesMap = {};
-            (categories || []).forEach(c => {
-                cachedCategoriesMap[c.id] = c.name;
-            });
 
             const checked = new Set(
                 Array.from(document.querySelectorAll('.prod-cat-checkbox:checked')).map(c => c.value)
@@ -1024,8 +1017,9 @@
             const sizesRaw = document.getElementById('prod-sizes').value.trim();
             const sizes = sizesRaw ? sizesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-            if (!title || mainIds.length === 0 || isNaN(finalPriceVal)) {
-                alert('Please fill in the product title, tick at least one main category, and set a price/original price.');
+            // RELAXED VALIDATION: Must select at least ONE category (either main or sub)
+            if (!title || categoryIds.length === 0 || isNaN(finalPriceVal)) {
+                alert('Please fill in the product title, tick at least one category, and set a price/original price.');
                 return;
             }
 
@@ -1069,7 +1063,7 @@
 
                 const productPayload = {
                     title,
-                    category_id: mainIds[0],
+                    category_id: mainIds.length > 0 ? mainIds[0] : null,
                     price: finalPriceVal,
                     original_price: !isNaN(origPriceVal) ? origPriceVal : null,
                     discount: discountVal,
