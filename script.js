@@ -97,13 +97,36 @@ import { supabase } from './supabaseClient.js';
       if (error) throw error;
 
       if (data) {
-        cart = data.map(item => ({
-          ...item.products,
-          quantity: item.quantity,
-          cart_id: item.id,
-          selected_color: item.selected_color || null,
-          selected_size: item.selected_size || null
-        }));
+        cart = data.map(item => {
+          let finalPrice = item.products.price;
+          
+          // Parse sizes to check for size-specific pricing
+          let sizes = [];
+          try {
+            sizes = Array.isArray(item.products.sizes) ? item.products.sizes : JSON.parse(item.products.sizes || '[]');
+          } catch (e) {
+            if (typeof item.products.sizes === 'string') {
+              sizes = item.products.sizes.split(',').map(s => s.trim()).filter(Boolean);
+            }
+          }
+
+          // If a size is selected and it has a custom price (e.g., "50cm:1200"), override the base price
+          if (item.selected_size) {
+            const matchedSize = sizes.find(s => s.includes(':') && s.split(':')[0].trim() === item.selected_size);
+            if (matchedSize) {
+              finalPrice = parseFloat(matchedSize.split(':')[1].trim());
+            }
+          }
+
+          return {
+            ...item.products,
+            price: finalPrice, // <-- Overrides base price
+            quantity: item.quantity,
+            cart_id: item.id,
+            selected_color: item.selected_color || null,
+            selected_size: item.selected_size || null
+          };
+        });
         updateCartUI();
       }
     } catch (err) {
@@ -197,18 +220,37 @@ import { supabase } from './supabaseClient.js';
     }
 
     try {
+      // Extract specific size price if a size is chosen
+      let finalPrice = product.price;
+      if (chosenSize) {
+        const matchedSize = availableSizes.find(s => s.includes(':') && s.split(':')[0].trim() === chosenSize);
+        if (matchedSize) {
+          finalPrice = parseFloat(matchedSize.split(':')[1].trim());
+        }
+      }
+
+      // 1. Instant local storage update so checkout reads it immediately
       const existingIndex = cart.findIndex(p =>
         String(p.id) === String(productId) && 
         p.selected_color === (chosenColor || null) &&
         p.selected_size === (chosenSize || null)
       );
+      
       if (existingIndex > -1) {
         cart[existingIndex].quantity = (Number(cart[existingIndex].quantity) || 1) + 1;
+        cart[existingIndex].price = finalPrice; // Ensure price stays updated
       } else if (product) {
-        cart.push({ ...product, quantity: 1, selected_color: chosenColor || null, selected_size: chosenSize || null });
+        cart.push({ 
+          ...product, 
+          price: finalPrice, // <-- Overrides base price for checkout
+          quantity: 1, 
+          selected_color: chosenColor || null, 
+          selected_size: chosenSize || null 
+        });
       }
       updateCartUI();
 
+      // 2. Background database sync if user is logged in
       if (currentUser) {
         let query = supabase
           .from('cart')
@@ -621,9 +663,10 @@ import { supabase } from './supabaseClient.js';
 
     const modalSwipeTrack = document.getElementById('modal-swipe-track');
     if (modalSwipeTrack) {
-      modalSwipeTrack.innerHTML = images.map((img) => `
+      const escapedImages = JSON.stringify(images).replace(/"/g, '&quot;');
+      modalSwipeTrack.innerHTML = images.map((img, index) => `
           <div class="w-full h-full flex-none snap-center flex items-center justify-center p-4">
-              <img src="${img}" class="w-full h-full object-contain">
+              <img src="${img}" onclick="openFullscreenGallery(${escapedImages}, ${index})" class="w-full h-full object-contain cursor-zoom-in" title="Tap to expand fullscreen">
           </div>
       `).join('');
       modalSwipeTrack.scrollLeft = 0;
@@ -765,7 +808,58 @@ import { supabase } from './supabaseClient.js';
     }
   }
 
-  // 7. Swiping UI Helpers
+  // 7. Fullscreen Gallery Zoom Logic
+  function openFullscreenGallery(images, startIndex) {
+    const gallery = document.getElementById('fullscreen-gallery');
+    const track = document.getElementById('gallery-swipe-track');
+    if (!gallery || !track) return;
+
+    track.innerHTML = images.map((img) => `
+        <div class="w-full h-full flex-none snap-center flex items-center justify-center p-4 md:p-12">
+            <img src="${img}" class="max-w-full max-h-full object-contain select-none">
+        </div>
+    `).join('');
+
+    gallery.classList.remove('hidden');
+    gallery.classList.add('flex');
+
+    setTimeout(() => {
+      gallery.classList.remove('opacity-0');
+      const width = track.clientWidth;
+      track.scrollTo({ left: startIndex * width, behavior: 'instant' });
+      updateGalleryCounter(startIndex, images.length);
+    }, 10);
+
+    track.onscroll = () => {
+      const activeIndex = Math.round(track.scrollLeft / track.clientWidth);
+      updateGalleryCounter(activeIndex, images.length);
+    };
+  }
+
+  function updateGalleryCounter(index, total) {
+    const counter = document.getElementById('gallery-counter');
+    if (counter) counter.innerText = `${index + 1} / ${total}`;
+  }
+
+  function closeFullscreenGallery() {
+    const gallery = document.getElementById('fullscreen-gallery');
+    if (!gallery) return;
+    gallery.classList.add('opacity-0');
+    setTimeout(() => {
+      gallery.classList.add('hidden');
+      gallery.classList.remove('flex');
+    }, 300);
+  }
+
+  function scrollGallerySlider(direction) {
+    const track = document.getElementById('gallery-swipe-track');
+    if (track) {
+      const width = track.clientWidth;
+      track.scrollBy({ left: direction * width, behavior: 'smooth' });
+    }
+  }
+
+  // 8. Swiping UI Helpers
   function updateSliderDots(event, productId) {
     const container = event.target;
     const scrollLeft = container.scrollLeft;
@@ -810,7 +904,7 @@ import { supabase } from './supabaseClient.js';
     }
   }
 
-  // 8. Best Sellers Marquee Showcase (Auto-Slide + Manual Swipe)
+  // 9. Best Sellers Marquee Showcase (Auto-Slide + Manual Swipe)
   async function loadCutestPepesShowcase() {
     const track = document.getElementById('cutest-pepes-track');
     if (!track) return;
@@ -915,7 +1009,7 @@ import { supabase } from './supabaseClient.js';
     }
   }
 
-  // 9. Expose global handlers needed for inline onclick attributes in HTML
+  // 10. Expose global handlers needed for inline onclick attributes in HTML
   window.showCategoryProducts = showCategoryProducts;
   window.hideProducts = hideProducts;
   window.scrollCategoryRow = scrollCategoryRow;
@@ -929,6 +1023,9 @@ import { supabase } from './supabaseClient.js';
   window.scrollProductSlider = scrollProductSlider;
   window.scrollModalSlider = scrollModalSlider;
   window.changeModalImage = changeModalImage;
+  window.openFullscreenGallery = openFullscreenGallery;
+  window.closeFullscreenGallery = closeFullscreenGallery;
+  window.scrollGallerySlider = scrollGallerySlider;
   window.loadCutestPepesShowcase = loadCutestPepesShowcase;
 
   // Initialize on page load
