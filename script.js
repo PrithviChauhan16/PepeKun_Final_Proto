@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient.js';
 
-/* PEPEKUN- Dynamic Storefront, Multi-Category Collections & Auth Script */
+/* PEPE KUN - Dynamic Storefront, Multi-Category Collections & Auth Script */
 
 (function () {
   'use strict';
@@ -12,9 +12,9 @@ import { supabase } from './supabaseClient.js';
   let collectionCategories = [];
   let currentUser = null;
   let selectedColor = null;
-  let selectedSize = null; // <-- ADDED: Track selected size
+  let selectedSize = null;
 
-// Helper Function for Generating Dynamic Price HTML with Discount Badges
+  // Helper Function for Generating Dynamic Price HTML with Discount Badges
   function getPriceDisplayHTML(prod) {
     let sellingPrice = parseFloat(prod.price || 0);
     let originalPrice = parseFloat(prod.original_price || 0);
@@ -34,7 +34,6 @@ import { supabase } from './supabaseClient.js';
     } else if (originalPrice > sellingPrice && originalPrice > 0) {
       let calculatedDiscount = Math.round(((originalPrice - sellingPrice) / originalPrice) * 100);
       
-      // Ensure the calculated discount is actually greater than 0 before showing the badge
       if (calculatedDiscount > 0) {
           return `
             <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
@@ -86,7 +85,6 @@ import { supabase } from './supabaseClient.js';
     }
   }
 
-  // Fetch cart count & items from Supabase
   async function fetchUserCartFromSupabase() {
     if (!currentUser) return;
 
@@ -104,7 +102,7 @@ import { supabase } from './supabaseClient.js';
           quantity: item.quantity,
           cart_id: item.id,
           selected_color: item.selected_color || null,
-          selected_size: item.selected_size || null // <-- ADDED: Map selected size from DB
+          selected_size: item.selected_size || null
         }));
         updateCartUI();
       }
@@ -135,8 +133,6 @@ import { supabase } from './supabaseClient.js';
     }
   }
 
-
-// <-- ADDED: Size selection helper (Updated for Dynamic Pricing)
   function selectSize(sizeName, sizePrice, btnElement) {
     selectedSize = sizeName;
     
@@ -150,17 +146,15 @@ import { supabase } from './supabaseClient.js';
       btnElement.classList.add('border-pink-500', 'bg-pink-50', 'text-pink-600', 'ring-2', 'ring-pink-400');
     }
 
-    // Update the main price display if a specific price exists for this size
     const priceContainer = document.getElementById('modal-price');
     if (priceContainer && sizePrice > 0) {
         priceContainer.innerHTML = `<span class="text-pink-500 font-bold text-2xl">₹${sizePrice.toFixed(2)}</span>`;
     }
   }
 
-  // <-- UPDATED: Accepts chosenSize parameter
   async function addToCart(productId, sourceBtnId = null, chosenColor = null, chosenSize = null) {
     const product = products.find(p => String(p.id) === String(productId));
-    if (!product && !currentUser) return;
+    if (!product && !currentUser) return false;
 
     let availableColors = [];
     try {
@@ -171,7 +165,6 @@ import { supabase } from './supabaseClient.js';
       }
     }
 
-    // <-- ADDED: Validate available sizes
     let availableSizes = [];
     try {
       availableSizes = Array.isArray(product?.sizes) ? product.sizes : JSON.parse(product?.sizes || '[]');
@@ -184,14 +177,13 @@ import { supabase } from './supabaseClient.js';
     if (availableColors.length > 0 && !chosenColor) {
       openProductModal(productId);
       alert('Please select a color option before adding to cart.');
-      return;
+      return false;
     }
 
-    // <-- ADDED: Block add-to-cart if a size isn't selected
     if (availableSizes.length > 0 && !chosenSize) {
       openProductModal(productId);
       alert('Please select a size option before adding to cart.');
-      return;
+      return false;
     }
 
     const targetBtnId = sourceBtnId || `btn-${productId}`;
@@ -204,6 +196,20 @@ import { supabase } from './supabaseClient.js';
     }
 
     try {
+      // 1. Instant local storage update so checkout reads it immediately
+      const existingIndex = cart.findIndex(p =>
+        String(p.id) === String(productId) && 
+        p.selected_color === (chosenColor || null) &&
+        p.selected_size === (chosenSize || null)
+      );
+      if (existingIndex > -1) {
+        cart[existingIndex].quantity = (Number(cart[existingIndex].quantity) || 1) + 1;
+      } else if (product) {
+        cart.push({ ...product, quantity: 1, selected_color: chosenColor || null, selected_size: chosenSize || null });
+      }
+      updateCartUI();
+
+      // 2. Background database sync if user is logged in
       if (currentUser) {
         let query = supabase
           .from('cart')
@@ -217,7 +223,6 @@ import { supabase } from './supabaseClient.js';
           query = query.is('selected_color', null);
         }
 
-        // <-- ADDED: Include size in DB check
         if (chosenSize) {
           query = query.eq('selected_size', chosenSize);
         } else {
@@ -229,38 +234,21 @@ import { supabase } from './supabaseClient.js';
 
         if (existingItem) {
           const newQty = (Number(existingItem.quantity) || 1) + 1;
-          const { error: updateErr } = await supabase
+          await supabase
             .from('cart')
             .update({ quantity: newQty, updated_at: new Date().toISOString() })
             .eq('id', existingItem.id);
-          if (updateErr) throw updateErr;
         } else {
-          const { error: insertErr } = await supabase
+          await supabase
             .from('cart')
             .insert([{
               user_id: currentUser.id,
               product_id: productId,
               quantity: 1,
               selected_color: chosenColor || null,
-              selected_size: chosenSize || null // <-- ADDED: Save size to DB
+              selected_size: chosenSize || null
             }]);
-          if (insertErr) throw insertErr;
         }
-
-        await fetchUserCartFromSupabase();
-      } else {
-        // <-- UPDATED: Include size in local cart search
-        const existingIndex = cart.findIndex(p =>
-          String(p.id) === String(productId) && 
-          p.selected_color === (chosenColor || null) &&
-          p.selected_size === (chosenSize || null)
-        );
-        if (existingIndex > -1) {
-          cart[existingIndex].quantity = (Number(cart[existingIndex].quantity) || 1) + 1;
-        } else if (product) {
-          cart.push({ ...product, quantity: 1, selected_color: chosenColor || null, selected_size: chosenSize || null });
-        }
-        updateCartUI();
       }
 
       if (btn) {
@@ -270,12 +258,22 @@ import { supabase } from './supabaseClient.js';
           btn.disabled = false;
         }, 1200);
       }
+      return true;
     } catch (err) {
       console.error('Error adding item to cart:', err);
       if (btn) {
         btn.textContent = originalText;
         btn.disabled = false;
       }
+      return false;
+    }
+  }
+
+  // Direct Buy / Instant Checkout Function
+  async function buyNow(productId, sourceBtnId = null, chosenColor = null, chosenSize = null) {
+    const success = await addToCart(productId, sourceBtnId, chosenColor, chosenSize);
+    if (success !== false) {
+      window.location.href = 'checkout.html';
     }
   }
 
@@ -360,23 +358,13 @@ import { supabase } from './supabaseClient.js';
     const max = row.scrollWidth - row.clientWidth - 2;
 
     if (left) {
-      if (row.scrollLeft > 2) {
-        left.classList.remove('hidden');
-        left.classList.add('flex');
-      } else {
-        left.classList.add('hidden');
-        left.classList.remove('flex');
-      }
+      left.classList.toggle('hidden', row.scrollLeft <= 2);
+      left.classList.toggle('flex', row.scrollLeft > 2);
     }
 
     if (right) {
-      if (row.scrollLeft < max) {
-        right.classList.remove('hidden');
-        right.classList.add('flex');
-      } else {
-        right.classList.add('hidden');
-        right.classList.remove('flex');
-      }
+      right.classList.toggle('hidden', row.scrollLeft >= max);
+      right.classList.toggle('flex', row.scrollLeft < max);
     }
   }
 
@@ -496,10 +484,15 @@ import { supabase } from './supabaseClient.js';
                     
                     <p class="text-gray-400 text-[10px] md:text-sm mb-4 mt-auto line-clamp-1">${prod.category || 'Premium Plushie'}</p>
                     
-                    <button id="btn-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-${prod.id}')" class="mt-auto w-full bg-brand-900 text-white py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-1.5 group/btn z-10">
-                        <svg class="w-3.5 h-3.5 md:w-4 md:h-4 group-hover/btn:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
-                        Add to Cart
-                    </button>
+                    <!-- Dual Action Buttons: Add to Cart & Buy Now -->
+                    <div class="grid grid-cols-2 gap-2 mt-auto z-10">
+                        <button id="btn-cart-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-cart-${prod.id}')" class="w-full bg-gray-100 text-gray-800 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-200 active:scale-95 transition-all flex justify-center items-center gap-1">
+                            Add to Cart
+                        </button>
+                        <button id="btn-buy-${prod.id}" onclick="event.stopPropagation(); buyNow('${prod.id}', 'btn-buy-${prod.id}')" class="w-full bg-brand-900 text-white py-2.5 rounded-xl text-xs font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-1">
+                            Buy Now
+                        </button>
+                    </div>
                 </div>
             </div>
           `;
@@ -528,7 +521,6 @@ import { supabase } from './supabaseClient.js';
     const prod = products.find(p => String(p.id) === String(productId));
     if (!prod) return;
 
-    // <-- ADDED: Reset states on modal open
     selectedColor = null;
     selectedSize = null; 
 
@@ -539,9 +531,9 @@ import { supabase } from './supabaseClient.js';
     const specsList = document.getElementById('modal-specs-list');
     const thumbsContainer = document.getElementById('modal-thumbnails');
     const addCartBtn = document.getElementById('modal-add-cart-btn');
+    const buyNowModalBtn = document.getElementById('modal-buy-now-btn');
     const colorsContainer = document.getElementById('modal-colors-container');
     const colorsOptions = document.getElementById('modal-color-options');
-    // <-- ADDED: Size containers
     const sizesContainer = document.getElementById('modal-sizes-container');
     const sizesOptions = document.getElementById('modal-size-options');
 
@@ -568,8 +560,8 @@ import { supabase } from './supabaseClient.js';
         colorsContainer.classList.remove('hidden');
         colorsOptions.innerHTML = colors.map(color => `
           <button type="button" 
-                  onclick="selectColor('${color}', this)"
-                  class="color-btn border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-gray-700 hover:border-pink-500 transition-all">
+                onclick="selectColor('${color}', this)"
+                class="color-btn border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-gray-700 hover:border-pink-500 transition-all">
             ${color}
           </button>
         `).join('');
@@ -579,7 +571,6 @@ import { supabase } from './supabaseClient.js';
       }
     }
 
-// <-- ADDED: Parse and Render Sizes (Updated for Dynamic Pricing)
     let sizes = [];
     try {
       sizes = Array.isArray(prod.sizes) ? prod.sizes : JSON.parse(prod.sizes || '[]');
@@ -589,14 +580,13 @@ import { supabase } from './supabaseClient.js';
       }
     }
 
-if (sizesContainer && sizesOptions) {
+    if (sizesContainer && sizesOptions) {
       if (sizes.length > 0) {
         sizesContainer.classList.remove('hidden');
         sizesOptions.innerHTML = sizes.map(sizeString => {
             let sizeName = sizeString;
-            let sizePrice = Math.max(0, parseFloat(prod.price || 0)); // Default to base price
+            let sizePrice = Math.max(0, parseFloat(prod.price || 0));
 
-            // Check if size contains a price (e.g., "35cm:900")
             if (sizeString.includes(':')) {
                 const parts = sizeString.split(':');
                 sizeName = parts[0].trim();
@@ -616,12 +606,12 @@ if (sizesContainer && sizesOptions) {
         sizesOptions.innerHTML = '';
       }
     }
+
     const modalSwipeTrack = document.getElementById('modal-swipe-track');
     if (modalSwipeTrack) {
-      const escapedImages = JSON.stringify(images).replace(/"/g, '&quot;');
-      modalSwipeTrack.innerHTML = images.map((img, index) => `
+      modalSwipeTrack.innerHTML = images.map((img) => `
           <div class="w-full h-full flex-none snap-center flex items-center justify-center p-4">
-              <img src="${img}" onclick="openFullscreenGallery(${escapedImages}, ${index})" class="w-full h-full object-contain cursor-zoom-in" title="Tap to expand fullscreen">
+              <img src="${img}" class="w-full h-full object-contain">
           </div>
       `).join('');
       modalSwipeTrack.scrollLeft = 0;
@@ -630,7 +620,7 @@ if (sizesContainer && sizesOptions) {
     if (title) title.textContent = prod.title;
     if (desc) desc.textContent = prod.description || 'No description available.';
 
-   if (price) {
+    if (price) {
       let sellingPrice = parseFloat(prod.price || 0);
       let originalPrice = parseFloat(prod.original_price || 0);
       let discountPercent = parseFloat(prod.discount || prod.discount_percentage || 0);
@@ -664,6 +654,7 @@ if (sizesContainer && sizesOptions) {
         price.innerHTML = `<span class="text-pink-500 font-bold text-2xl">₹${sellingPrice.toFixed(2)}</span>`;
       }
     }
+
     if (specsList) {
       specsList.innerHTML = specs.length > 0
         ? specs.map(s => `<li>${s}</li>`).join('')
@@ -679,8 +670,11 @@ if (sizesContainer && sizesOptions) {
     }
 
     if (addCartBtn) {
-      // <-- UPDATED: Passing selectedSize to addToCart
       addCartBtn.onclick = () => addToCart(prod.id, 'modal-add-cart-btn', selectedColor, selectedSize);
+    }
+
+    if (buyNowModalBtn) {
+      buyNowModalBtn.onclick = () => buyNow(prod.id, 'modal-buy-now-btn', selectedColor, selectedSize);
     }
 
     if (modal) {
@@ -759,58 +753,7 @@ if (sizesContainer && sizesOptions) {
     }
   }
 
-  // 7. Fullscreen Gallery Zoom Logic
-  function openFullscreenGallery(images, startIndex) {
-    const gallery = document.getElementById('fullscreen-gallery');
-    const track = document.getElementById('gallery-swipe-track');
-    if (!gallery || !track) return;
-
-    track.innerHTML = images.map((img) => `
-        <div class="w-full h-full flex-none snap-center flex items-center justify-center p-4 md:p-12">
-            <img src="${img}" class="max-w-full max-h-full object-contain select-none">
-        </div>
-    `).join('');
-
-    gallery.classList.remove('hidden');
-    gallery.classList.add('flex');
-
-    setTimeout(() => {
-      gallery.classList.remove('opacity-0');
-      const width = track.clientWidth;
-      track.scrollTo({ left: startIndex * width, behavior: 'instant' });
-      updateGalleryCounter(startIndex, images.length);
-    }, 10);
-
-    track.onscroll = () => {
-      const activeIndex = Math.round(track.scrollLeft / track.clientWidth);
-      updateGalleryCounter(activeIndex, images.length);
-    };
-  }
-
-  function updateGalleryCounter(index, total) {
-    const counter = document.getElementById('gallery-counter');
-    if (counter) counter.innerText = `${index + 1} / ${total}`;
-  }
-
-  function closeFullscreenGallery() {
-    const gallery = document.getElementById('fullscreen-gallery');
-    if (!gallery) return;
-    gallery.classList.add('opacity-0');
-    setTimeout(() => {
-      gallery.classList.add('hidden');
-      gallery.classList.remove('flex');
-    }, 300);
-  }
-
-  function scrollGallerySlider(direction) {
-    const track = document.getElementById('gallery-swipe-track');
-    if (track) {
-      const width = track.clientWidth;
-      track.scrollBy({ left: direction * width, behavior: 'smooth' });
-    }
-  }
-
-  // 8. Swiping UI Helpers
+  // 7. Swiping UI Helpers
   function updateSliderDots(event, productId) {
     const container = event.target;
     const scrollLeft = container.scrollLeft;
@@ -855,7 +798,7 @@ if (sizesContainer && sizesOptions) {
     }
   }
 
-  // 9. Best Sellers Marquee Showcase (Auto-Slide + Manual Swipe)
+  // 8. Best Sellers Marquee Showcase (Auto-Slide + Manual Swipe)
   async function loadCutestPepesShowcase() {
     const track = document.getElementById('cutest-pepes-track');
     if (!track) return;
@@ -919,18 +862,22 @@ if (sizesContainer && sizesOptions) {
                   <h3 class="font-semibold text-gray-900 group-hover:text-pink-500 transition-colors text-sm md:text-lg line-clamp-2 leading-tight z-10 mb-1 break-words">${prod.title}</h3>
                   <div class="mb-2">${priceDisplayHTML}</div>
                   <p class="text-gray-400 text-[10px] md:text-sm mb-4 mt-auto line-clamp-1">${prod.category || 'Best Seller'}</p>
-                  <button id="btn-promo-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-promo-${prod.id}')" class="mt-auto w-full bg-brand-900 text-white py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-1.5 group/btn z-10">
-                      Add to Cart
-                  </button>
+                  
+                  <div class="grid grid-cols-2 gap-2 mt-auto z-10">
+                      <button id="btn-promo-cart-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-promo-cart-${prod.id}')" class="w-full bg-gray-100 text-gray-800 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-200 active:scale-95 transition-all flex justify-center items-center gap-1">
+                          Add to Cart
+                      </button>
+                      <button id="btn-promo-buy-${prod.id}" onclick="event.stopPropagation(); buyNow('${prod.id}', 'btn-promo-buy-${prod.id}')" class="w-full bg-brand-900 text-white py-2.5 rounded-xl text-xs font-semibold hover:bg-pink-500 active:scale-95 transition-all shadow-md flex justify-center items-center gap-1">
+                          Buy Now
+                      </button>
+                  </div>
               </div>
           </div>
         `;
       }).join('');
 
-      // Inject cards (tripled to ensure smooth infinite looping while swiping)
       track.innerHTML = cardsHTML + cardsHTML + cardsHTML;
 
-      // --- AUTO-SCROLL LOGIC ---
       let isInteracting = false;
       let scrollSpeed = 1; 
       
@@ -942,11 +889,9 @@ if (sizesContainer && sizesOptions) {
       track.addEventListener('touchstart', pauseScroll, { passive: true });
       track.addEventListener('touchend', resumeScroll);
 
-      // Continuous loop
       setInterval(() => {
         if (!isInteracting) {
           track.scrollLeft += scrollSpeed;
-          // Infinite loop reset: if scrolled past 1/3 of the duplicated content, snap back
           if (track.scrollLeft >= track.scrollWidth / 3) {
             track.scrollLeft = 0;
           }
@@ -958,22 +903,20 @@ if (sizesContainer && sizesOptions) {
     }
   }
 
-  // 10. Expose global handlers needed for inline onclick attributes in HTML
+  // 9. Expose global handlers needed for inline onclick attributes in HTML
   window.showCategoryProducts = showCategoryProducts;
   window.hideProducts = hideProducts;
   window.scrollCategoryRow = scrollCategoryRow;
   window.openProductModal = openProductModal;
   window.closeModal = closeModal;
   window.addToCart = addToCart;
+  window.buyNow = buyNow;
   window.selectColor = selectColor;
-  window.selectSize = selectSize; // <-- ADDED: Expose selectSize globally
+  window.selectSize = selectSize;
   window.updateSliderDots = updateSliderDots;
   window.scrollProductSlider = scrollProductSlider;
   window.scrollModalSlider = scrollModalSlider;
   window.changeModalImage = changeModalImage;
-  window.openFullscreenGallery = openFullscreenGallery;
-  window.closeFullscreenGallery = closeFullscreenGallery;
-  window.scrollGallerySlider = scrollGallerySlider;
   window.loadCutestPepesShowcase = loadCutestPepesShowcase;
 
   // Initialize on page load
