@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient.js';
 
-/* PEPE KUN - Dynamic Storefront, Multi-Category Collections & Auth Script */
+/* PEPEKUN - Dynamic Storefront, Multi-Category Collections & Auth Script */
 
 (function () {
   'use strict';
