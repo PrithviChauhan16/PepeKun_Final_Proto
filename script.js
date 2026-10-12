@@ -174,13 +174,14 @@ import { supabase } from './supabaseClient.js';
       }
     }
 
-    if (availableColors.length > 0 && !chosenColor) {
+    // Only force selection if there are MULTIPLE options available
+    if (availableColors.length > 1 && !chosenColor) {
       openProductModal(productId);
       alert('Please select a color option before adding to cart.');
       return false;
     }
 
-    if (availableSizes.length > 0 && !chosenSize) {
+    if (availableSizes.length > 1 && !chosenSize) {
       openProductModal(productId);
       alert('Please select a size option before adding to cart.');
       return false;
@@ -196,7 +197,6 @@ import { supabase } from './supabaseClient.js';
     }
 
     try {
-      // 1. Instant local storage update so checkout reads it immediately
       const existingIndex = cart.findIndex(p =>
         String(p.id) === String(productId) && 
         p.selected_color === (chosenColor || null) &&
@@ -209,7 +209,6 @@ import { supabase } from './supabaseClient.js';
       }
       updateCartUI();
 
-      // 2. Background database sync if user is logged in
       if (currentUser) {
         let query = supabase
           .from('cart')
@@ -269,7 +268,6 @@ import { supabase } from './supabaseClient.js';
     }
   }
 
-  // Direct Buy / Instant Checkout Function
   async function buyNow(productId, sourceBtnId = null, chosenColor = null, chosenSize = null) {
     const success = await addToCart(productId, sourceBtnId, chosenColor, chosenSize);
     if (success !== false) {
@@ -484,7 +482,6 @@ import { supabase } from './supabaseClient.js';
                     
                     <p class="text-gray-400 text-[10px] md:text-sm mb-4 mt-auto line-clamp-1">${prod.category || 'Premium Plushie'}</p>
                     
-                    <!-- Dual Action Buttons: Add to Cart & Buy Now -->
                     <div class="grid grid-cols-2 gap-2 mt-auto z-10">
                         <button id="btn-cart-${prod.id}" onclick="event.stopPropagation(); addToCart('${prod.id}', 'btn-cart-${prod.id}')" class="w-full bg-gray-100 text-gray-800 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-200 active:scale-95 transition-all flex justify-center items-center gap-1">
                             Add to Cart
@@ -555,13 +552,18 @@ import { supabase } from './supabaseClient.js';
       }
     }
 
+    // Auto-select single color if only 1 option exists
+    if (colors.length === 1) {
+      selectedColor = colors[0];
+    }
+
     if (colorsContainer && colorsOptions) {
       if (colors.length > 0) {
         colorsContainer.classList.remove('hidden');
         colorsOptions.innerHTML = colors.map(color => `
           <button type="button" 
                 onclick="selectColor('${color}', this)"
-                class="color-btn border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-gray-700 hover:border-pink-500 transition-all">
+                class="color-btn border ${colors.length === 1 ? 'border-pink-500 bg-pink-50 text-pink-600 ring-2 ring-pink-400' : 'border-gray-300 text-gray-700'} rounded-full px-4 py-1.5 text-xs font-medium hover:border-pink-500 transition-all">
             ${color}
           </button>
         `).join('');
@@ -577,6 +579,16 @@ import { supabase } from './supabaseClient.js';
     } catch (e) {
       if (typeof prod.sizes === 'string') {
         sizes = prod.sizes.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+
+    // Auto-select single size if only 1 option exists
+    if (sizes.length === 1) {
+      let singleSizeStr = sizes[0];
+      if (singleSizeStr.includes(':')) {
+        selectedSize = singleSizeStr.split(':')[0].trim();
+      } else {
+        selectedSize = singleSizeStr.trim();
       }
     }
 
@@ -596,7 +608,7 @@ import { supabase } from './supabaseClient.js';
             return `
               <button type="button" 
                       onclick="selectSize('${sizeName}', ${sizePrice}, this)"
-                      class="size-btn border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-gray-700 hover:border-pink-500 transition-all">
+                      class="size-btn border ${sizes.length === 1 ? 'border-pink-500 bg-pink-50 text-pink-600 ring-2 ring-pink-400' : 'border-gray-300 text-gray-700'} rounded-full px-4 py-1.5 text-xs font-medium hover:border-pink-500 transition-all">
                 ${sizeName}
               </button>
             `;
