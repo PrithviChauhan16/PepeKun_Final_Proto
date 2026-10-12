@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard | PEPE KUN</title>
+    <title>Admin Dashboard | PEPEKUN</title>
     <link rel="icon" href="1pepe-logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -35,7 +35,7 @@
     <!-- MOBILE TOP BAR -->
     <div
         class="md:hidden flex items-center justify-between bg-white border-b border-gray-200 px-6 py-4 z-30 flex-shrink-0">
-        <span class="text-lg font-bold tracking-widest uppercase">PEPE KUN <span
+        <span class="text-lg font-bold tracking-widest uppercase">PEPEKUN <span
                 class="text-pink-500 text-xs">ADMIN</span></span>
         <button onclick="toggleMobileSidebar()" class="p-2 text-gray-600 hover:text-pink-500 focus:outline-none">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -49,7 +49,7 @@
     <aside id="sidebar"
         class="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-lg md:shadow-none md:static flex-shrink-0">
         <div class="h-20 flex items-center justify-between px-8 border-b border-gray-100">
-            <span class="text-xl font-bold tracking-widest uppercase">PEPE KUN <span
+            <span class="text-xl font-bold tracking-widest uppercase">PEPEKUN <span
                     class="text-pink-500 text-sm">ADMIN</span></span>
             <button onclick="toggleMobileSidebar()"
                 class="md:hidden text-gray-400 hover:text-gray-700 text-2xl font-bold">&times;</button>
@@ -783,7 +783,7 @@
             `;
 
             if (replyBtn) {
-                replyBtn.href = `mailto:${inq.email}?subject=Regarding your inquiry on PEPE KUN&body=Hi ${encodeURIComponent(inq.name || '')},%0D%0A%0D%0A`;
+                replyBtn.href = `mailto:${inq.email}?subject=Regarding your inquiry on PEPEKUN&body=Hi ${encodeURIComponent(inq.name || '')},%0D%0A%0D%0A`;
             }
 
             document.getElementById('inquiry-modal').classList.remove('hidden');
